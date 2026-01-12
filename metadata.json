@@ -1,0 +1,7 @@
+{
+  "name": "ArchiGenius AI - Floor Plan Designer",
+  "description": "An AI-powered 2D floor plan designer for houses and condos with intelligent layout analysis and 3D visualization using Gemini.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
