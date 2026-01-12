@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Furniture, Wall, FurnitureType } from '../types';
-import { Settings, RotateCw, Trash2, Palette } from 'lucide-react';
+import { Settings, RotateCw, Trash2, Palette, Ruler } from 'lucide-react';
 
 interface PropertiesPanelProps {
   selectedId: string | null;
@@ -12,13 +12,22 @@ interface PropertiesPanelProps {
 }
 
 const MATERIALS = [
-  { id: 'oak', name: 'Oak Wood', color: '#e5c08b', type: 'wood' },
-  { id: 'walnut', name: 'Walnut', color: '#5d4037', type: 'wood' },
-  { id: 'fabric_grey', name: 'Grey Fabric', color: '#9e9e9e', type: 'fabric' },
-  { id: 'velvet_navy', name: 'Navy Velvet', color: '#1a237e', type: 'fabric' },
-  { id: 'leather_black', name: 'Black Leather', color: '#212121', type: 'leather' },
-  { id: 'metal_chrome', name: 'Chrome', color: '#cfd8dc', type: 'metal' },
-  { id: 'plastic_white', name: 'White Gloss', color: '#ffffff', type: 'plastic' },
+  // Woods
+  { id: 'oak', name: 'Oak Wood', color: '#d4b483', type: 'wood' },
+  { id: 'walnut', name: 'Walnut Finish', color: '#4e3b31', type: 'wood' },
+  { id: 'pine', name: 'Scandinavian Pine', color: '#e8d5b5', type: 'wood' },
+  // Fabrics
+  { id: 'fabric_grey', name: 'Woven Grey', color: '#8a8a8a', type: 'fabric' },
+  { id: 'velvet_navy', name: 'Navy Velvet', color: '#2c3e50', type: 'fabric' },
+  { id: 'leather_black', name: 'Aniline Leather', color: '#1a1a1a', type: 'leather' },
+  // Metals
+  { id: 'metal_chrome', name: 'Polished Chrome', color: '#e8e8e8', type: 'metal' },
+  { id: 'metal_brass', name: 'Brushed Brass', color: '#c5a059', type: 'metal' },
+  // Stones & Others
+  { id: 'marble_white', name: 'Carrara Marble', color: '#f0f0f0', type: 'stone' },
+  { id: 'concrete_raw', name: 'Raw Concrete', color: '#959595', type: 'stone' },
+  { id: 'plastic_white', name: 'Arctic White', color: '#fefefe', type: 'plastic' },
+  { id: 'terracotta', name: 'Terracotta', color: '#c06c4c', type: 'clay' },
 ];
 
 const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
@@ -39,14 +48,17 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
         </div>
         <div>
           <h3 className="font-black text-slate-900 leading-tight">{selectedFurniture.type}</h3>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Component Settings</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Component Tuning</p>
         </div>
       </div>
 
-      <div className="space-y-8">
+      <div className="space-y-8 h-[calc(100vh-250px)] overflow-y-auto no-scrollbar pr-1">
         {/* Dimensions */}
         <div>
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] block mb-4">Dimensions (cm)</label>
+          <div className="flex items-center gap-2 mb-4">
+            <Ruler size={14} className="text-slate-400" />
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Dimensions (cm)</label>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <span className="text-[10px] text-slate-400 font-medium ml-1">Width</span>
@@ -113,11 +125,15 @@ const PropertiesPanel: React.FC<PropertiesPanelProps> = ({
                     <div className="w-1.5 h-1.5 bg-white rounded-full shadow-sm" />
                   </div>
                 )}
+                {/* Subtle sheen for metals/stones */}
+                {(mat.type === 'metal' || mat.type === 'stone') && (
+                  <div className="absolute inset-0 opacity-20 pointer-events-none bg-gradient-to-tr from-transparent via-white to-transparent" />
+                )}
               </button>
             ))}
           </div>
           <p className="text-[10px] text-slate-400 mt-3 font-medium text-center italic">
-            {MATERIALS.find(m => m.id === selectedFurniture.material)?.name || 'Default Finish'}
+            {MATERIALS.find(m => m.id === selectedFurniture.material)?.name || 'Standard Finish'}
           </p>
         </div>
 

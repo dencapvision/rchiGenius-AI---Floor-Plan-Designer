@@ -3,22 +3,32 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import { Wall, Furniture, FurnitureType } from '../types';
-import { Sun, Moon, Clock } from 'lucide-react';
+import { Sun, Moon, Clock, Layers } from 'lucide-react';
 
 interface ThreeDViewerProps {
   walls: Wall[];
   furniture: Furniture[];
 }
 
-// Refined material map with natural tones and adjusted PBR properties
+// Refined material map with natural tones and balanced saturation
 const MATERIAL_MAP: Record<string, { color: number, roughness: number, metalness: number }> = {
-  oak: { color: 0xd4b483, roughness: 0.85, metalness: 0.05 },
-  walnut: { color: 0x4e3b31, roughness: 0.75, metalness: 0.1 },
-  fabric_grey: { color: 0x8a8a8a, roughness: 1.0, metalness: 0.0 },
-  velvet_navy: { color: 0x2c3e50, roughness: 0.9, metalness: 0.0 },
-  leather_black: { color: 0x1a1a1a, roughness: 0.35, metalness: 0.1 },
-  metal_chrome: { color: 0xe8e8e8, roughness: 0.15, metalness: 1.0 },
-  plastic_white: { color: 0xfefefe, roughness: 0.4, metalness: 0.05 },
+  // Woods
+  oak: { color: 0xc8aa7a, roughness: 0.82, metalness: 0.04 },
+  walnut: { color: 0x48382c, roughness: 0.72, metalness: 0.08 },
+  pine: { color: 0xdfc79d, roughness: 0.88, metalness: 0.02 },
+  // Fabrics
+  fabric_grey: { color: 0x828282, roughness: 1.0, metalness: 0.0 },
+  velvet_navy: { color: 0x283645, roughness: 0.92, metalness: 0.0 },
+  leather_black: { color: 0x181818, roughness: 0.32, metalness: 0.12 },
+  // Metals
+  metal_chrome: { color: 0xd9d9d9, roughness: 0.12, metalness: 1.0 },
+  metal_brass: { color: 0xad8d4f, roughness: 0.35, metalness: 0.95 },
+  // Stones
+  marble_white: { color: 0xeaeaea, roughness: 0.18, metalness: 0.05 },
+  concrete_raw: { color: 0x8c8c8c, roughness: 0.95, metalness: 0.0 },
+  // Others
+  plastic_white: { color: 0xfafafa, roughness: 0.42, metalness: 0.03 },
+  terracotta: { color: 0xac5d40, roughness: 0.98, metalness: 0.0 },
 };
 
 const ThreeDViewer: React.FC<ThreeDViewerProps> = ({ walls, furniture }) => {
@@ -26,59 +36,92 @@ const ThreeDViewer: React.FC<ThreeDViewerProps> = ({ walls, furniture }) => {
   const [timeOfDay, setTimeOfDay] = useState(14); // 0-24 (2 PM default)
   const WALL_HEIGHT = 150;
 
-  // Function to create procedural textures
+  // Procedural Wood Floor Texture
   const createFloorTexture = () => {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
+    canvas.width = 1024;
+    canvas.height = 1024;
     const ctx = canvas.getContext('2d')!;
     
-    // Fill background (Natural light wood color)
-    ctx.fillStyle = '#c9ae8a';
-    ctx.fillRect(0, 0, 512, 512);
+    // Base Floor Tone (Subdued)
+    ctx.fillStyle = '#bfa682';
+    ctx.fillRect(0, 0, 1024, 1024);
     
-    // Draw wood planks
-    ctx.strokeStyle = '#8d6e63';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 512; i += 64) {
+    // Plank Lines
+    ctx.strokeStyle = 'rgba(100, 75, 60, 0.4)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 1024; i += 128) {
       ctx.beginPath();
       ctx.moveTo(i, 0);
-      ctx.lineTo(i, 512);
+      ctx.lineTo(i, 1024);
       ctx.stroke();
       
-      // Grain details
-      for (let j = 0; j < 512; j += 128) {
+      // Grain pattern
+      for (let j = 0; j < 1024; j += 256) {
+        ctx.save();
+        ctx.globalAlpha = 0.06;
         ctx.beginPath();
-        ctx.moveTo(i, j + Math.random() * 64);
-        ctx.lineTo(i + 64, j + 32 + Math.random() * 64);
-        ctx.globalAlpha = 0.08;
+        ctx.ellipse(i + 64, j + 128, 40, 200, Math.random() * Math.PI, 0, Math.PI * 2);
         ctx.stroke();
-        ctx.globalAlpha = 1.0;
+        ctx.restore();
       }
     }
     
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(8, 8);
+    texture.repeat.set(6, 6);
+    texture.anisotropy = 16;
     return texture;
   };
 
   const createWallTexture = () => {
     const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
+    canvas.width = 512;
+    canvas.height = 512;
     const ctx = canvas.getContext('2d')!;
     
-    // Subtle plaster texture
-    ctx.fillStyle = '#fdfdfd';
-    ctx.fillRect(0, 0, 256, 256);
-    for (let i = 0; i < 1500; i++) {
-      ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.03})`;
-      ctx.fillRect(Math.random() * 256, Math.random() * 256, 1, 1);
+    // Natural Off-white Base Plaster
+    ctx.fillStyle = '#f9f9f7';
+    ctx.fillRect(0, 0, 512, 512);
+    
+    // Layer 1: Soft Clouding (Mottled effect)
+    for (let i = 0; i < 50; i++) {
+      const x = Math.random() * 512;
+      const y = Math.random() * 512;
+      const radius = 20 + Math.random() * 60;
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      gradient.addColorStop(0, `rgba(220, 220, 210, 0.15)`);
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Layer 2: Micro-grains (Gritty texture)
+    for (let i = 0; i < 8000; i++) {
+      const opacity = Math.random() * 0.04;
+      ctx.fillStyle = `rgba(0,0,0,${opacity})`;
+      ctx.fillRect(Math.random() * 512, Math.random() * 512, 1, 1);
+    }
+
+    // Layer 3: Subtle vertical streaks (Construction effect)
+    ctx.strokeStyle = 'rgba(0,0,0,0.01)';
+    for (let i = 0; i < 30; i++) {
+      const x = Math.random() * 512;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x + (Math.random() - 0.5) * 5, 512);
+      ctx.stroke();
     }
     
-    return new THREE.CanvasTexture(canvas);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    // Walls are usually vertical, we repeat more horizontally than vertically typically
+    texture.repeat.set(2, 1); 
+    return texture;
   };
 
   useEffect(() => {
@@ -89,72 +132,75 @@ const ThreeDViewer: React.FC<ThreeDViewerProps> = ({ walls, furniture }) => {
 
     const scene = new THREE.Scene();
     
-    // Camera
-    const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 5000);
-    camera.position.set(600, 800, 1000);
+    // Camera Setup
+    const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 5000);
+    camera.position.set(800, 1000, 1200);
 
-    // Renderer
+    // Optimized Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2; // Slightly boosted exposure for cleaner look
+    renderer.toneMappingExposure = 1.15;
     containerRef.current.appendChild(renderer.domElement);
 
-    // Controls
+    // Interaction Controls
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.1; // Prevent going below floor
 
-    // Materials
+    // Scene Environment Materials
     const floorTexture = createFloorTexture();
     const wallTexture = createWallTexture();
     
     const floorMaterial = new THREE.MeshStandardMaterial({ 
       map: floorTexture, 
       roughness: 0.9, 
-      metalness: 0.05 
+      metalness: 0.02 
     });
     
     const wallMaterial = new THREE.MeshStandardMaterial({ 
       map: wallTexture, 
       color: 0xffffff,
-      roughness: 1.0,
-      metalness: 0.0
+      roughness: 0.95, // High roughness for matte plaster look
+      metalness: 0.0,
+      bumpMap: wallTexture, // Reusing texture as bump map for micro-surface variation
+      bumpScale: 0.5
     });
 
-    // Lights and Atmosphere Logic
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    // Lighting Ecosystem
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
     scene.add(ambientLight);
 
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    sunLight.position.set(500, 1000, 500);
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.3);
+    sunLight.position.set(500, 1200, 500);
     sunLight.castShadow = true;
     sunLight.shadow.mapSize.width = 2048;
     sunLight.shadow.mapSize.height = 2048;
-    sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 3000;
-    sunLight.shadow.camera.left = -1200;
-    sunLight.shadow.camera.right = 1200;
-    sunLight.shadow.camera.top = 1200;
-    sunLight.shadow.camera.bottom = -1200;
+    sunLight.shadow.camera.near = 1;
+    sunLight.shadow.camera.far = 4000;
+    sunLight.shadow.camera.left = -1500;
+    sunLight.shadow.camera.right = 1500;
+    sunLight.shadow.camera.top = 1500;
+    sunLight.shadow.camera.bottom = -1500;
+    sunLight.shadow.bias = -0.0005;
     scene.add(sunLight);
 
-    // Ground Plane
-    const groundGeo = new THREE.PlaneGeometry(3500, 3500);
+    // Ground & Bounds
+    const groundGeo = new THREE.PlaneGeometry(4000, 4000);
     const ground = new THREE.Mesh(groundGeo, floorMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Grid (Minimalist)
-    const grid = new THREE.GridHelper(3500, 70, 0x000000, 0x000000);
-    (grid.material as THREE.LineBasicMaterial).opacity = 0.05;
+    const grid = new THREE.GridHelper(4000, 80, 0x000000, 0x000000);
+    (grid.material as THREE.LineBasicMaterial).opacity = 0.04;
     (grid.material as THREE.LineBasicMaterial).transparent = true;
     scene.add(grid);
 
-    // Walls
+    // Construct Walls
     walls.forEach(wall => {
       const dx = wall.end.x - wall.start.x;
       const dz = wall.end.y - wall.start.y;
@@ -170,42 +216,41 @@ const ThreeDViewer: React.FC<ThreeDViewerProps> = ({ walls, furniture }) => {
       scene.add(mesh);
     });
 
-    // Furniture
+    // Populate Furniture with High-Fidelity Materials
     furniture.forEach(f => {
-      // Natural fallback colors
-      let color = 0x5c6bc0;
-      let fHeight = 40;
+      let color = 0x607d8b;
       let roughness = 0.8;
       let metalness = 0.05;
 
-      // Apply selected material if exists
+      // Apply assigned material with natural saturation
       if (f.material && MATERIAL_MAP[f.material]) {
-        const matProps = MATERIAL_MAP[f.material];
-        color = matProps.color;
-        roughness = matProps.roughness;
-        metalness = matProps.metalness;
+        const mat = MATERIAL_MAP[f.material];
+        color = mat.color;
+        roughness = mat.roughness;
+        metalness = mat.metalness;
       } else {
-        // Natural fallback colors based on type
+        // Fallback natural colors
         switch (f.type) {
-          case FurnitureType.BED: color = 0x5c6bc0; break; // Muted blue
-          case FurnitureType.SOFA: color = 0x8d6e63; break; // Earthy brown
-          case FurnitureType.TV: color = 0x263238; break; // Dark slate
-          case FurnitureType.PLANT: color = 0x388e3c; break; // Forest green
-          case FurnitureType.TABLE: color = 0x5d4037; break; // Deep wood
-          case FurnitureType.DOOR: color = 0x4e342e; break; // Heavy wood
-          case FurnitureType.WINDOW: color = 0x90caf9; break; // Glass blue
+          case FurnitureType.BED: color = 0x546e7a; break;
+          case FurnitureType.SOFA: color = 0x795548; break;
+          case FurnitureType.TV: color = 0x212121; break;
+          case FurnitureType.PLANT: color = 0x2e7d32; break;
+          case FurnitureType.TABLE: color = 0x4e342e; break;
+          case FurnitureType.DOOR: color = 0x3e2723; break;
+          case FurnitureType.WINDOW: color = 0xb3e5fc; break;
         }
       }
 
-      // Proportional heights
+      // Height logic
+      let fHeight = 40;
       switch (f.type) {
         case FurnitureType.BED: fHeight = 35; break;
-        case FurnitureType.SOFA: fHeight = 50; break;
-        case FurnitureType.TV: fHeight = 70; break;
-        case FurnitureType.PLANT: fHeight = 90; break;
+        case FurnitureType.SOFA: fHeight = 45; break;
+        case FurnitureType.TV: fHeight = 65; break;
+        case FurnitureType.PLANT: fHeight = 80; break;
         case FurnitureType.TABLE: fHeight = 55; break;
         case FurnitureType.DOOR: fHeight = 140; break;
-        case FurnitureType.WINDOW: fHeight = 85; break;
+        case FurnitureType.WINDOW: fHeight = 90; break;
       }
 
       const geometry = new THREE.BoxGeometry(f.width, fHeight, f.height);
@@ -214,10 +259,11 @@ const ThreeDViewer: React.FC<ThreeDViewerProps> = ({ walls, furniture }) => {
         roughness, 
         metalness,
         transparent: f.type === FurnitureType.WINDOW,
-        opacity: f.type === FurnitureType.WINDOW ? 0.4 : 1.0
+        opacity: f.type === FurnitureType.WINDOW ? 0.45 : 1.0,
       });
+      
       const mesh = new THREE.Mesh(geometry, material);
-      const yPos = f.type === FurnitureType.WINDOW ? WALL_HEIGHT * 0.6 : fHeight / 2;
+      const yPos = f.type === FurnitureType.WINDOW ? WALL_HEIGHT * 0.55 : fHeight / 2;
       mesh.position.set(f.position.x, yPos, f.position.y);
       mesh.rotation.y = -(f.rotation * Math.PI) / 180;
       mesh.castShadow = true;
@@ -225,43 +271,42 @@ const ThreeDViewer: React.FC<ThreeDViewerProps> = ({ walls, furniture }) => {
       scene.add(mesh);
     });
 
-    // Update Lighting based on Time of Day
-    const updateLighting = (time: number) => {
-      const isDay = time >= 6 && time <= 18;
+    // Time-based Atmospheric Sync
+    const updateAtmosphere = (time: number) => {
       const cycle = (time - 6) / 12; // 0 at 6am, 1 at 6pm
+      const isDay = time >= 6 && time <= 19;
       
-      // Sky color logic
-      let skyColor = new THREE.Color(0xb0e0e6); // Default soft sky
-      if (time < 5 || time > 20) skyColor.set(0x05080c); // Midnight
-      else if (time < 7) skyColor.lerp(new THREE.Color(0xffcc99), (time - 5) / 2); // Dawn
-      else if (time < 17) skyColor.lerp(new THREE.Color(0x87ceeb), (time - 7) / 10); // Mid-day
-      else if (time < 19) skyColor.lerp(new THREE.Color(0xff8c00), (time - 17) / 2); // Golden hour
-      else if (time < 21) skyColor.lerp(new THREE.Color(0x1a1a2e), (time - 19) / 2); // Twilight
+      let skyColor = new THREE.Color(0xaeddf2);
+      if (time < 5 || time > 21) skyColor.set(0x020408);
+      else if (time < 8) skyColor.lerp(new THREE.Color(0xffcc99), 0.5);
+      else if (time > 17 && time < 20) skyColor.lerp(new THREE.Color(0xff7f50), (time-17)/3);
+      else if (time >= 20) skyColor.lerp(new THREE.Color(0x1a1a2e), 0.8);
 
       scene.background = skyColor;
       
       const theta = Math.PI * cycle;
-      const sunX = Math.cos(theta) * 1200;
-      const sunY = Math.sin(theta) * 1200;
-      const sunZ = 500;
+      const sunX = Math.cos(theta) * 1500;
+      const sunY = Math.sin(theta) * 1500;
+      const sunZ = 600;
 
       if (isDay) {
-        sunLight.intensity = Math.max(0.2, Math.sin(theta) * 1.8);
+        const intensityMult = Math.sin(theta);
+        sunLight.intensity = Math.max(0.15, intensityMult * 1.9);
         sunLight.position.set(sunX, sunY, sunZ);
         
-        // Warm sun in morning/evening, neutral at noon
-        const warmth = Math.abs(cycle - 0.5) * 2; // 1 at ends, 0 at noon
-        sunLight.color.setHSL(0.1 + warmth * 0.05, 0.4, 0.9);
-        ambientLight.intensity = 0.3 + Math.sin(theta) * 0.4;
+        // Color temperature shift (Golden hour vs Noon)
+        const warmth = Math.abs(cycle - 0.5) * 2;
+        sunLight.color.setHSL(0.1 + warmth * 0.04, 0.45, 0.92);
+        ambientLight.intensity = 0.3 + intensityMult * 0.45;
       } else {
-        sunLight.intensity = 0.15; // Soft moonlight
-        sunLight.position.set(-600, 1000, -400);
-        sunLight.color.set(0xaabbee);
-        ambientLight.intensity = 0.1;
+        sunLight.intensity = 0.12;
+        sunLight.position.set(-800, 1200, -500);
+        sunLight.color.set(0x99aaff);
+        ambientLight.intensity = 0.08;
       }
     };
 
-    updateLighting(timeOfDay);
+    updateAtmosphere(timeOfDay);
 
     const animate = () => {
       requestAnimationFrame(animate);
@@ -288,17 +333,51 @@ const ThreeDViewer: React.FC<ThreeDViewerProps> = ({ walls, furniture }) => {
 
   return (
     <div ref={containerRef} className="w-full h-full relative overflow-hidden group">
-      {/* Time Control Overlay */}
-      <div className="absolute top-24 right-6 z-20 bg-white/95 backdrop-blur-md p-5 rounded-3xl shadow-2xl border border-slate-200 w-64 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500">
+      {/* Dynamic Lighting Module */}
+      <div className="absolute top-24 right-6 z-20 bg-white/90 backdrop-blur-md p-5 rounded-3xl shadow-2xl border border-slate-200 w-64 translate-x-4 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 transition-all duration-500">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <Clock size={16} className="text-indigo-600" />
-            <span className="text-[11px] font-black text-slate-800 uppercase tracking-tight">Technical Lighting</span>
+            <Layers size={16} className="text-indigo-600" />
+            <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Environment</span>
           </div>
-          <span className="text-xs font-mono font-bold bg-indigo-50 px-2 py-0.5 rounded-lg text-indigo-700">
+          <span className="text-[10px] font-mono font-black bg-indigo-50 px-2 py-1 rounded-lg text-indigo-700">
             {Math.floor(timeOfDay).toString().padStart(2, '0')}:00
           </span>
         </div>
         
         <div className="flex items-center gap-3">
-          <Sun size={14} className={timeOfDay >= 6 && timeOfDay <= 18 ? "text
+          <Sun size={14} className={timeOfDay >= 6 && timeOfDay <= 19 ? "text-amber-500" : "text-slate-300"} />
+          <input 
+            type="range" 
+            min="0" 
+            max="23" 
+            value={timeOfDay} 
+            onChange={(e) => setTimeOfDay(parseInt(e.target.value))}
+            className="flex-1 accent-indigo-600 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+          />
+          <Moon size={14} className={timeOfDay < 6 || timeOfDay > 19 ? "text-indigo-400" : "text-slate-300"} />
+        </div>
+      </div>
+
+      {/* Render Diagnostics */}
+      <div className="absolute bottom-6 left-6 bg-slate-900/90 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 text-[10px] font-bold text-white uppercase tracking-widest z-10 flex items-center gap-5 shadow-2xl">
+        <div className="flex gap-2.5 items-center">
+          <div className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse shadow-[0_0_10px_#818cf8]" />
+          ArchiGenius Render Engine v2.1
+        </div>
+        <span className="text-white/20">|</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-indigo-300">PBR:</span>
+          <span>ACES Filmic Tone</span>
+        </div>
+        <span className="text-white/20">|</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-indigo-300">Materials:</span>
+          <span>Plaster Detail</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ThreeDViewer;
