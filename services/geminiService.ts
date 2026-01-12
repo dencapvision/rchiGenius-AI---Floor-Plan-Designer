@@ -2,10 +2,11 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Wall, Furniture } from "../types";
 
-const API_KEY = process.env.API_KEY || "";
+// Removed global constant for API_KEY to strictly follow direct process.env.API_KEY requirement
 
 export const getDesignAdvice = async (walls: Wall[], furniture: Furniture[]): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  // Fix: Initialize client inside the function using direct environment variable
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const layoutDescription = `
     Walls: ${JSON.stringify(walls)}
     Furniture: ${JSON.stringify(furniture)}
@@ -27,6 +28,7 @@ export const getDesignAdvice = async (walls: Wall[], furniture: Furniture[]): Pr
       model: "gemini-3-flash-preview",
       contents: prompt,
     });
+    // Fix: Use .text property instead of .text() method
     return response.text || "ขออภัย ไม่สามารถวิเคราะห์ได้ในขณะนี้";
   } catch (error) {
     console.error("Gemini Error:", error);
@@ -35,7 +37,8 @@ export const getDesignAdvice = async (walls: Wall[], furniture: Furniture[]): Pr
 };
 
 export const generateVisualization = async (promptText: string): Promise<string | null> => {
-  const ai = new GoogleGenAI({ apiKey: API_KEY });
+  // Fix: Initialize client inside the function using direct environment variable
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
     const response = await ai.models.generateContent({
@@ -54,6 +57,7 @@ export const generateVisualization = async (promptText: string): Promise<string 
       }
     });
 
+    // Fix: Correctly iterate through parts to find image data
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;

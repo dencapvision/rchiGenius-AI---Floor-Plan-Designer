@@ -18,7 +18,9 @@ export enum FurnitureType {
   CHAIR = 'Chair',
   DOOR = 'Door',
   WINDOW = 'Window',
-  CABINET = 'Cabinet'
+  CABINET = 'Cabinet',
+  PLANT = 'Plant',
+  TV = 'Television'
 }
 
 export interface Furniture {
@@ -33,12 +35,12 @@ export interface Furniture {
 export enum ToolMode {
   SELECT = 'SELECT',
   WALL = 'WALL',
+  ROOM = 'ROOM',
   FURNITURE = 'FURNITURE',
   ERASE = 'ERASE'
 }
 
-export interface RoomAdvice {
-  suggestion: string;
-  pros: string[];
-  cons: string[];
+export interface SelectedObject {
+  id: string;
+  type: 'wall' | 'furniture';
 }
