@@ -30,6 +30,7 @@ export interface Furniture {
   rotation: number;
   width: number;
   height: number;
+  material?: string;
 }
 
 export enum ToolMode {
