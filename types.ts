@@ -40,7 +40,14 @@ export enum ToolMode {
   ERASE = 'ERASE'
 }
 
-export interface SelectedObject {
-  id: string;
-  type: 'wall' | 'furniture';
+export interface ProjectReport {
+  items: Array<{
+    name: string;
+    quantity: number;
+    unit: string;
+    estimatedPrice: number;
+    description: string;
+  }>;
+  totalEstimate: number;
+  summary: string;
 }

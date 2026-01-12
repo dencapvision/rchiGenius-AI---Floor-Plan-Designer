@@ -3,56 +3,69 @@ import React, { useState } from 'react';
 import Toolbar from './components/Toolbar';
 import FloorPlanCanvas from './components/FloorPlanCanvas';
 import PropertiesPanel from './components/PropertiesPanel';
-import { Wall, ToolMode, Furniture, FurnitureType } from './types';
-import { getDesignAdvice, generateVisualization } from './services/geminiService';
-// Fix: Added missing icon imports Maximize and Sparkles
-import { X, Loader2, Info, ChevronRight, Wand2, Maximize, Sparkles } from 'lucide-react';
+import ThreeDViewer from './components/ThreeDViewer';
+import { Wall, ToolMode, Furniture, FurnitureType, ProjectReport } from './types';
+import { getProjectReport, generateVisualization, convertImageToFloorPlan } from './services/geminiService';
+import { X, Loader2, ChevronRight, Wand2, Maximize, FileText, Camera, Box, Layout, Receipt } from 'lucide-react';
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<ToolMode>(ToolMode.SELECT);
+  const [viewMode, setViewMode] = useState<'2D' | '3D'>('2D');
   const [selectedFurniture, setSelectedFurniture] = useState<FurnitureType>(FurnitureType.BED);
   const [walls, setWalls] = useState<Wall[]>([]);
   const [furniture, setFurniture] = useState<Furniture[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   
-  const [aiAdvice, setAiAdvice] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [projectReport, setProjectReport] = useState<ProjectReport | null>(null);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [visualizationUrl, setVisualizationUrl] = useState<string | null>(null);
   const [isVisualizing, setIsVisualizing] = useState(false);
-  const [showAiModal, setShowAiModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  
+  const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
+  const [bgOpacity, setBgOpacity] = useState(0.4);
+  const [isImporting, setIsImporting] = useState(false);
 
-  const handleUpdateFurniture = (id: string, updates: Partial<Furniture>) => {
-    setFurniture(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+  const handleImportImage = async (file: File) => {
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string;
+      setBackgroundImage(base64); // Use as background tracing
+      try {
+        const { walls: w, furniture: f } = await convertImageToFloorPlan(base64);
+        if (w.length > 0) {
+          setWalls(prev => [...prev, ...w]);
+          setFurniture(prev => [...prev, ...f]);
+        }
+      } finally {
+        setIsImporting(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleDelete = (id: string) => {
-    setFurniture(prev => prev.filter(f => f.id !== id));
-    setSelectedId(null);
-  };
-
-  const handleUndo = () => {
-    // Basic undo logic
-    if (walls.length > 0) setWalls(walls.slice(0, -1));
-  };
-
-  const handleAnalyze = async () => {
-    if (walls.length === 0 && furniture.length === 0) return;
-    setIsAnalyzing(true);
-    setShowAiModal(true);
-    const advice = await getDesignAdvice(walls, furniture);
-    setAiAdvice(advice);
-    setIsAnalyzing(false);
+  const handleGenerateReport = async () => {
+    if (walls.length === 0) return;
+    setIsGeneratingReport(true);
+    setShowReportModal(true);
+    try {
+      const report = await getProjectReport(walls, furniture);
+      setProjectReport(report);
+    } catch (err) {
+      alert("Error generating report");
+    } finally {
+      setIsGeneratingReport(false);
+    }
   };
 
   const handleVisualize = async () => {
     if (walls.length === 0) return;
     setIsVisualizing(true);
     setVisualizationUrl(null);
-    setShowAiModal(true);
-    
-    const description = `A modern architectural room interior. Layout has ${walls.length} wall segments and furniture includes: ${furniture.map(f => f.type).join(', ')}. Use neutral tones, oak wood, and high-end lighting.`;
-    const imageUrl = await generateVisualization(description);
-    setVisualizationUrl(imageUrl);
+    setShowReportModal(true);
+    const url = await generateVisualization(`Modern interior construction: ${walls.length} walls`);
+    setVisualizationUrl(url);
     setIsVisualizing(false);
   };
 
@@ -63,110 +76,127 @@ const App: React.FC = () => {
         setMode={setMode} 
         selectedFurniture={selectedFurniture}
         setSelectedFurniture={setSelectedFurniture}
-        onAnalyze={handleAnalyze}
+        onAnalyze={handleGenerateReport}
         onVisualize={handleVisualize}
-        onUndo={handleUndo}
-        isAnalyzing={isAnalyzing}
+        onUndo={() => setWalls(walls.slice(0, -1))}
+        onImportImage={handleImportImage}
+        isImporting={isImporting}
       />
       
-      <FloorPlanCanvas 
-        mode={mode} 
-        walls={walls} 
-        setWalls={setWalls}
-        furniture={furniture}
-        setFurniture={setFurniture}
-        selectedFurnitureType={selectedFurniture}
-        selectedId={selectedId}
-        setSelectedId={setSelectedId}
-      />
+      <main className="flex-1 relative flex flex-col">
+        {/* Top Control Bar */}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-4">
+          <div className="flex bg-white/90 backdrop-blur border border-slate-200 p-1 rounded-xl shadow-lg">
+            <button onClick={() => setViewMode('2D')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${viewMode === '2D' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}><Layout size={14} /> 2D</button>
+            <button onClick={() => setViewMode('3D')} className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition ${viewMode === '3D' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}><Box size={14} /> 3D</button>
+          </div>
+          
+          {backgroundImage && (
+            <div className="bg-white/90 backdrop-blur border border-slate-200 px-4 py-2 rounded-xl shadow-lg flex items-center gap-3">
+              <Camera size={14} className="text-slate-400" />
+              <input type="range" min="0" max="1" step="0.1" value={bgOpacity} onChange={(e) => setBgOpacity(parseFloat(e.target.value))} className="w-24 accent-slate-900" title="Opacity" />
+              <button onClick={() => setBackgroundImage(null)} className="text-slate-400 hover:text-red-500 transition"><X size={14} /></button>
+            </div>
+          )}
+        </div>
 
-      <PropertiesPanel 
-        selectedId={selectedId}
-        walls={walls}
-        furniture={furniture}
-        onUpdateFurniture={handleUpdateFurniture}
-        onDelete={handleDelete}
-      />
+        {viewMode === '2D' ? (
+          <FloorPlanCanvas 
+            mode={mode} 
+            walls={walls} setWalls={setWalls}
+            furniture={furniture} setFurniture={setFurniture}
+            selectedFurnitureType={selectedFurniture}
+            selectedId={selectedId} setSelectedId={setSelectedId}
+            backgroundImage={backgroundImage} bgOpacity={bgOpacity}
+          />
+        ) : (
+          <ThreeDViewer walls={walls} furniture={furniture} />
+        )}
+      </main>
 
-      {/* AI Intelligence Modal */}
-      {showAiModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm pointer-events-none">
-          <div className="bg-white w-full max-w-4xl h-full max-h-[85vh] rounded-[2.5rem] shadow-2xl flex flex-col pointer-events-auto overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b flex items-center justify-between">
+      <PropertiesPanel selectedId={selectedId} walls={walls} furniture={furniture} onUpdateFurniture={(id, up) => setFurniture(prev => prev.map(f => f.id === id ? { ...f, ...up } : f))} onDelete={(id) => setFurniture(prev => prev.filter(f => f.id !== id))} />
+
+      {/* AI Report Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md pointer-events-none">
+          <div className="bg-white w-full max-w-5xl h-full max-h-[90vh] rounded-[2rem] shadow-2xl flex flex-col pointer-events-auto overflow-hidden animate-in slide-in-from-bottom-8">
+            <div className="p-8 border-b bg-slate-900 text-white flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="bg-gradient-to-tr from-indigo-500 to-purple-500 p-3 rounded-2xl text-white shadow-lg">
-                  <Wand2 size={24} />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">AI Workspace</h2>
-                  <p className="text-sm text-slate-500 font-medium italic">Architectural Intelligence Engine</p>
-                </div>
+                <FileText size={24} className="text-blue-400" />
+                <h2 className="text-2xl font-black">Project Technical Report</h2>
               </div>
-              <button 
-                onClick={() => setShowAiModal(false)}
-                className="w-10 h-10 bg-slate-100 flex items-center justify-center rounded-full hover:bg-slate-200 transition"
-              >
-                <X size={20} className="text-slate-600" />
-              </button>
+              <button onClick={() => setShowReportModal(false)} className="bg-white/10 p-2 rounded-full hover:bg-white/20 transition"><X size={20} /></button>
             </div>
 
-            <div className="flex-1 flex overflow-hidden">
-              {/* Left Column: Visuals */}
-              <div className="w-1/2 p-8 border-r overflow-y-auto no-scrollbar bg-slate-50/50">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">3D Concept Visualization</h3>
-                {isVisualizing ? (
-                  <div className="aspect-square bg-slate-100 rounded-3xl flex flex-col items-center justify-center border-2 border-dashed border-slate-200 animate-pulse">
-                    <Loader2 className="animate-spin text-indigo-500 mb-4" size={40} />
-                    <p className="text-sm text-slate-500 font-bold">Dreaming up your room...</p>
-                  </div>
-                ) : visualizationUrl ? (
-                  <div className="group relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
-                    <img src={visualizationUrl} alt="3D View" className="w-full aspect-square object-cover" />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center pointer-events-none">
-                       <span className="text-white text-xs font-bold uppercase tracking-widest bg-white/20 backdrop-blur px-4 py-2 rounded-full">Pro Render</span>
-                    </div>
-                  </div>
-                ) : (
-                  <button onClick={handleVisualize} className="w-full aspect-square bg-slate-100 rounded-3xl border-2 border-dashed border-slate-300 flex flex-col items-center justify-center group hover:bg-slate-200 transition">
-                    <Maximize size={32} className="text-slate-300 group-hover:text-indigo-400 transition mb-2" />
-                    <span className="text-sm text-slate-400 font-medium">Click to Generate 3D Concept</span>
-                  </button>
-                )}
-              </div>
+            <div className="flex-1 overflow-y-auto p-10 space-y-12">
+              {/* Summary Section */}
+              <section className="bg-blue-50/50 border border-blue-100 p-8 rounded-3xl">
+                <h3 className="text-blue-600 font-black uppercase tracking-widest text-xs mb-4">AI Analysis Summary</h3>
+                <p className="text-slate-700 leading-relaxed font-medium">
+                  {isGeneratingReport ? "Calculating construction data..." : projectReport?.summary || "Ready to analyze project parameters."}
+                </p>
+              </section>
 
-              {/* Right Column: Textual Advice */}
-              <div className="w-1/2 p-8 overflow-y-auto no-scrollbar">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Design Critique (Thai)</h3>
-                {isAnalyzing ? (
-                  <div className="space-y-4">
-                    <div className="h-4 bg-slate-100 rounded w-full animate-pulse" />
-                    <div className="h-4 bg-slate-100 rounded w-5/6 animate-pulse" />
-                    <div className="h-4 bg-slate-100 rounded w-4/6 animate-pulse" />
-                  </div>
-                ) : aiAdvice ? (
-                  <div className="prose prose-slate prose-sm max-w-none">
-                    <div className="bg-indigo-50/50 p-6 rounded-3xl border border-indigo-100 text-slate-700 leading-relaxed italic whitespace-pre-wrap">
-                      {aiAdvice}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                {/* Visualizer Section */}
+                <div className="space-y-4">
+                  <h3 className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Realistic Preview</h3>
+                  {isVisualizing ? (
+                    <div className="aspect-video bg-slate-100 rounded-3xl flex items-center justify-center animate-pulse"><Loader2 className="animate-spin text-blue-500" /></div>
+                  ) : visualizationUrl ? (
+                    <img src={visualizationUrl} className="w-full rounded-3xl shadow-xl border-4 border-white" alt="Render" />
+                  ) : (
+                    <button onClick={handleVisualize} className="w-full aspect-video border-2 border-dashed border-slate-200 rounded-3xl flex flex-col items-center justify-center hover:bg-slate-50 transition"><Maximize className="text-slate-300 mb-2" /> <span className="text-xs font-bold text-slate-400">Generate 3D Render</span></button>
+                  )}
+                </div>
+
+                {/* BOQ Section */}
+                <div className="space-y-4">
+                  <h3 className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Bill of Quantities (BOQ)</h3>
+                  {isGeneratingReport ? (
+                    <div className="space-y-3">
+                      {[1,2,3].map(i => <div key={i} className="h-12 bg-slate-50 rounded-xl animate-pulse" />)}
                     </div>
-                  </div>
-                ) : (
-                   <div className="text-center py-20">
-                     <Sparkles size={40} className="mx-auto text-slate-200 mb-4" />
-                     <p className="text-slate-400 text-sm italic">Request an analysis to see AI feedback.</p>
-                   </div>
-                )}
+                  ) : projectReport ? (
+                    <div className="space-y-3">
+                      <table className="w-full text-left text-sm">
+                        <thead>
+                          <tr className="text-slate-400 border-b">
+                            <th className="pb-2">Material</th>
+                            <th className="pb-2">Qty</th>
+                            <th className="pb-2 text-right">Price (THB)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {projectReport.items.map((item, idx) => (
+                            <tr key={idx} className="group hover:bg-slate-50 transition">
+                              <td className="py-3 font-bold text-slate-700">{item.name}</td>
+                              <td className="py-3 text-slate-500">{item.quantity} {item.unit}</td>
+                              <td className="py-3 text-right font-mono text-slate-900">{item.estimatedPrice.toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t-2 border-slate-900">
+                            <td colSpan={2} className="py-4 font-black text-lg">Total Estimate</td>
+                            <td className="py-4 text-right font-black text-lg text-blue-600">{projectReport.totalEstimate.toLocaleString()} ฿</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-20 text-slate-300 italic text-sm">Run analysis to see pricing breakdown.</div>
+                  )}
+                </div>
               </div>
             </div>
 
             <div className="p-8 bg-slate-50 border-t flex justify-between items-center">
-              <p className="text-xs text-slate-400 font-medium">Powered by Gemini 3 Flash Preview & Imagen</p>
-              <button 
-                onClick={() => setShowAiModal(false)}
-                className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-slate-800 shadow-xl transition active:scale-95"
-              >
-                Continue Draft
-                <ChevronRight size={18} />
-              </button>
+              <div className="flex gap-2">
+                <Receipt size={16} className="text-slate-400" />
+                <span className="text-xs text-slate-400 font-bold">Prices based on Thai Market Average 2024</span>
+              </div>
+              <button onClick={() => window.print()} className="bg-slate-900 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-slate-800 transition">Print Full Report</button>
             </div>
           </div>
         </div>
