@@ -5,9 +5,8 @@ import { Wall, Furniture, FurnitureType, ProjectReport } from "../types";
 export const getProjectReport = async (walls: Wall[], furniture: Furniture[]): Promise<ProjectReport> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Calculate raw metrics
   const totalWallLengthPx = walls.reduce((sum, w) => sum + Math.hypot(w.end.x - w.start.x, w.end.y - w.start.y), 0);
-  const totalWallMeters = totalWallLengthPx * 0.05; // 20px = 1m
+  const totalWallMeters = totalWallLengthPx * 0.05; 
   const furnitureCounts = furniture.reduce((acc, f) => {
     acc[f.type] = (acc[f.type] || 0) + 1;
     return acc;
@@ -18,14 +17,10 @@ export const getProjectReport = async (walls: Wall[], furniture: Furniture[]): P
     - Total Wall Length: ${totalWallMeters.toFixed(2)} meters
     - Furniture List: ${JSON.stringify(furnitureCounts)}
 
-    As a professional Thai contractor, generate a "Project Report" in JSON format with these fields:
-    1. items: Array of objects { name: string, quantity: number, unit: string, estimatedPrice: number, description: string }
-       Include materials like bricks/gypsum, paint based on wall length, and furniture items.
-    2. totalEstimate: Total cost in THB (approximate).
-    3. summary: A technical summary in Thai advising on the construction steps.
-
-    Use realistic current market prices in Thailand.
-    Output MUST be only valid JSON.
+    ในฐานะผู้รับเหมามืออาชีพในไทย ให้สร้าง "Project Report" ในรูปแบบ JSON:
+    1. items: รายการวัสดุ { name: string, quantity: number, unit: string, estimatedPrice: number, description: string }
+    2. totalEstimate: ราคาก่อสร้างโดยประมาณ (บาท)
+    3. summary: สรุปคำแนะนำทางเทคนิคสำหรับการก่อสร้างเป็นภาษาไทย
   `;
 
   try {
@@ -59,7 +54,6 @@ export const getProjectReport = async (walls: Wall[], furniture: Furniture[]): P
 
     return JSON.parse(response.text);
   } catch (error) {
-    console.error("BOQ Generation Error:", error);
     throw error;
   }
 };
@@ -68,53 +62,55 @@ export const convertImageToFloorPlan = async (base64Image: string): Promise<{ wa
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const prompt = `
-    Analyze this photo of a room or floor plan and extract structural layout.
-    Return only a valid JSON object with "walls" and "furniture" arrays.
-    Coordinate System: 1000x1000.
+    วิเคราะห์ภาพถ่ายห้องหรือภาพวาดแผนผังนี้ และสกัดโครงสร้างออกมาเป็นพิกัด JSON
+    walls: { start: {x, y}, end: {x, y} }
+    furniture: { type, position: {x, y}, width, height }
   `;
 
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: [
-        { inlineData: { mimeType: "image/jpeg", data: base64Image.split(",")[1] || base64Image } },
-        { text: prompt }
-      ],
+      contents: {
+        parts: [
+          { inlineData: { mimeType: "image/jpeg", data: base64Image.split(",")[1] || base64Image } },
+          { text: prompt }
+        ]
+      },
       config: { responseMimeType: "application/json" }
     });
     const data = JSON.parse(response.text);
-    const scale = 0.8; 
     return {
-      walls: (data.walls || []).map((w: any) => ({
-        id: Math.random().toString(36).substr(2, 9),
-        start: { x: Math.round(w.start.x * scale / 20) * 20, y: Math.round(w.start.y * scale / 20) * 20 },
-        end: { x: Math.round(w.end.x * scale / 20) * 20, y: Math.round(w.end.y * scale / 20) * 20 },
-        thickness: 8
-      })),
-      furniture: (data.furniture || []).map((f: any) => ({
-        id: Math.random().toString(36).substr(2, 9),
-        type: (Object.values(FurnitureType).includes(f.type) ? f.type : FurnitureType.TABLE) as FurnitureType,
-        position: { x: Math.round(f.position.x * scale / 20) * 20, y: Math.round(f.position.y * scale / 20) * 20 },
-        rotation: 0,
-        width: f.width || 60,
-        height: f.height || 40
-      }))
+      walls: (data.walls || []).map((w: any) => ({ ...w, id: Math.random().toString(), thickness: 8 })),
+      furniture: (data.furniture || []).map((f: any) => ({ ...f, id: Math.random().toString(), rotation: 0 }))
     };
   } catch (err) {
     return { walls: [], furniture: [] };
   }
 };
 
-export const generateVisualization = async (promptText: string): Promise<string | null> => {
+export const generateVisualization = async (promptText: string, style: string = 'Modern Luxury'): Promise<string | null> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  // ปรับแต่ง Prompt ให้มีความสมจริงและเป็นมืออาชีพมากขึ้น
+  const enhancedPrompt = `
+    High-end interior design visualization, ${style} style. 
+    Scene details: ${promptText}.
+    Atmosphere: Cinematic lighting, natural sunlight from windows, realistic materials (marble, polished wood, high-quality fabric), 
+    Technical: Photorealistic, 8k resolution, architectural photography, shot on 35mm lens, sharp focus, volumetric lighting, ray-traced reflections.
+    No humans, clean and professional look.
+  `;
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
-      contents: [{ text: `Professional architectural interior render, daytime lighting, ${promptText}.` }],
+      contents: enhancedPrompt,
     });
     for (const part of response.candidates?.[0]?.content?.parts || []) {
       if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`;
     }
     return null;
-  } catch (err) { return null; }
+  } catch (err) { 
+    console.error("Visualization error:", err);
+    return null; 
+  }
 };
