@@ -152,12 +152,14 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#10b981 1px, transparent 1px), linear-gradient(90deg, #10b981 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
           
           {backgroundImage && (
-            <img 
-              src={backgroundImage} 
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-300"
-              style={{ opacity: bgOpacity }}
-              alt="Blueprint"
-            />
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <img 
+                src={backgroundImage} 
+                className="max-w-full max-h-full object-contain transition-opacity duration-300"
+                style={{ opacity: bgOpacity }}
+                alt="Blueprint"
+              />
+            </div>
           )}
           <svg
             ref={svgRef}

@@ -28,7 +28,8 @@ import {
   Waves,
   Zap,
   Move,
-  Ruler
+  Ruler,
+  Sliders
 } from 'lucide-react';
 import { ToolMode, FurnitureType } from '../types';
 
@@ -115,12 +116,45 @@ const Toolbar: React.FC<ToolbarProps> = ({
                  <VisualToolButton active={mode === ToolMode.MEASURE} onClick={() => setMode(ToolMode.MEASURE)} icon={<Ruler size={20} />} label="วัดระยะ" />
               </div>
 
-              <div className="pt-6 border-t border-white/5">
-                <button onClick={() => fileInputRef.current?.click()} className="w-full flex flex-col items-center gap-2 p-6 rounded-3xl bg-slate-900 border border-white/5 text-slate-400 hover:text-white hover:border-emerald-500/30 transition group">
-                   <ImageIcon size={24} className="group-hover:text-emerald-500 transition-transform group-hover:scale-110" />
-                   <span className="text-[10px] font-black uppercase tracking-widest">ใช้อ้างอิงจากรูปภาพ</span>
+              <div className="pt-6 border-t border-white/5 space-y-4">
+                <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-widest">อ้างอิงจากแบบร่าง</h2>
+                
+                <button 
+                  onClick={() => fileInputRef.current?.click()} 
+                  disabled={isImporting}
+                  className="w-full flex flex-col items-center gap-2 p-6 rounded-3xl bg-slate-900 border border-white/5 text-slate-400 hover:text-white hover:border-emerald-500/30 transition group disabled:opacity-50"
+                >
+                   {isImporting ? (
+                     <Loader2 size={24} className="animate-spin text-emerald-500" />
+                   ) : (
+                     <ImageIcon size={24} className="group-hover:text-emerald-500 transition-transform group-hover:scale-110" />
+                   )}
+                   <span className="text-[10px] font-black uppercase tracking-widest">
+                     {isImporting ? 'กำลังประมวลผล...' : backgroundImage ? 'เปลี่ยนรูปภาพแบบร่าง' : 'อัปโหลดภาพแบบร่าง'}
+                   </span>
                 </button>
                 <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
+
+                {backgroundImage && (
+                  <div className="bg-slate-900/50 p-5 rounded-3xl border border-white/5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sliders size={14} className="text-emerald-500" />
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ความโปร่งใส</span>
+                      </div>
+                      <span className="text-[10px] font-mono font-black text-emerald-500">{Math.round(bgOpacity * 100)}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="1" 
+                      step="0.01"
+                      value={bgOpacity}
+                      onChange={(e) => onOpacityChange(parseFloat(e.target.value))}
+                      className="w-full accent-emerald-500 h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    />
+                  </div>
+                )}
               </div>
            </section>
         )}
