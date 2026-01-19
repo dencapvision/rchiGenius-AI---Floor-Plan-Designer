@@ -34,15 +34,15 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
   const [startPoint, setStartPoint] = useState<Point | null>(null);
-  const [currentMousePos, setCurrentMousePos] = useState<Point | null>(null);
+  const [currentMousePos, setCurrentMousePos] = useState<Point>({ x: 0, y: 0 });
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const getMousePos = (e: React.MouseEvent | React.TouchEvent): Point => {
     if (!svgRef.current) return { x: 0, y: 0 };
     const rect = svgRef.current.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const clientX = 'touches' in e ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX;
+    const clientY = 'touches' in e ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY;
     return {
       x: Math.round((clientX - rect.left) / GRID_SIZE) * GRID_SIZE,
       y: Math.round((clientY - rect.top) / GRID_SIZE) * GRID_SIZE
@@ -90,10 +90,11 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const pos = getMousePos(e);
+    setCurrentMousePos(pos);
     if (draggingId) {
       setFurniture(prev => prev.map(f => f.id === draggingId ? { ...f, position: { x: pos.x - dragOffset.x, y: pos.y - dragOffset.y } } : f));
     } else if (isDrawing) {
-      setCurrentMousePos(pos);
+      // Logic managed by currentMousePos state
     }
   };
 
@@ -115,133 +116,112 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     setDraggingId(null);
   };
 
-  const renderRulers = () => {
-    const topTicks = [];
-    const leftTicks = [];
-    for (let i = 0; i < 2000; i += GRID_SIZE) {
-      const isMajor = i % (GRID_SIZE * 5) === 0;
-      topTicks.push(
-        <div key={`t-${i}`} className="flex flex-col items-center" style={{ width: GRID_SIZE, flexShrink: 0 }}>
-          <div className={`w-px ${isMajor ? 'h-3 bg-emerald-500/50' : 'h-1.5 bg-slate-800'}`} />
-          {isMajor && <span className="text-[7px] text-slate-600 font-black mt-1">{(i * PIXELS_TO_METERS).toFixed(0)}</span>}
-        </div>
-      );
-      leftTicks.push(
-        <div key={`l-${i}`} className="flex items-center justify-end pr-1" style={{ height: GRID_SIZE, flexShrink: 0 }}>
-          {isMajor && <span className="text-[7px] text-slate-600 font-black mr-1">{(i * PIXELS_TO_METERS).toFixed(0)}</span>}
-          <div className={`h-px ${isMajor ? 'w-3 bg-emerald-500/50' : 'w-1.5 bg-slate-800'}`} />
-        </div>
-      );
-    }
-    return { topTicks, leftTicks };
-  };
-
-  const { topTicks, leftTicks } = renderRulers();
-
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#0b1120]">
-      {/* Designer Ruler */}
-      <div className="h-6 flex border-b border-white/5 bg-[#0b1120]">
-        <div className="w-6 border-r border-white/5 bg-slate-950 shrink-0" />
-        <div className="flex-1 flex items-start overflow-hidden opacity-50">
-           {topTicks}
-        </div>
-      </div>
-
-      <div className="flex-1 flex overflow-hidden">
-        {/* Designer Side Ruler */}
-        <div className="w-6 flex flex-col bg-[#0b1120] border-r border-white/5 overflow-hidden opacity-50">
-           {leftTicks}
-        </div>
-
-        {/* Workspace Obsidian */}
-        <div className="flex-1 relative overflow-auto bg-[#020617] p-8 no-scrollbar">
-          <div className="min-w-[2000px] min-h-[2000px] bg-[#0b1120] relative shadow-[0_0_100px_rgba(0,0,0,0.5)] rounded-3xl overflow-hidden" ref={containerRef}>
-            {/* Emerald Grid Effect */}
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#10b981 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-            
-            {backgroundImage && (
-              <img 
-                src={backgroundImage} 
-                className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-300"
-                style={{ opacity: bgOpacity }}
-                alt="Architecture Blueprint"
-              />
-            )}
-            <svg
-              ref={svgRef}
-              className="absolute inset-0 w-full h-full cursor-crosshair z-10"
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-            >
-              {/* Engineering Walls */}
-              {walls.map((wall) => {
-                const midX = (wall.start.x + wall.end.x) / 2;
-                const midY = (wall.start.y + wall.end.y) / 2;
-                const pixels = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
-                const length = (pixels * PIXELS_TO_METERS).toFixed(2);
-                return (
-                  <g key={wall.id}>
-                    <line x1={wall.start.x} y1={wall.start.y} x2={wall.end.x} y2={wall.end.y} stroke="#334155" strokeWidth={wall.thickness} strokeLinecap="round" />
-                    <line x1={wall.start.x} y1={wall.start.y} x2={wall.end.x} y2={wall.end.y} stroke="#10b981" strokeWidth="1" strokeOpacity="0.3" />
-                    <g transform={`translate(${midX}, ${midY - 10})`}>
-                      <rect x="-18" y="-7" width="36" height="14" rx="4" fill="#020617" stroke="#10b981" strokeWidth="0.5" />
-                      <text textAnchor="middle" dominantBaseline="middle" className="text-[8px] fill-emerald-500 font-black tracking-tighter">
-                        {length}m
-                      </text>
-                    </g>
-                  </g>
-                );
-              })}
-
-              {/* Designer Furniture Icons */}
-              {furniture.map(f => {
-                const isSelected = selectedId === f.id;
-                return (
-                  <g key={f.id} transform={`translate(${f.position.x}, ${f.position.y}) rotate(${f.rotation})`}>
-                    <rect 
-                      x={-f.width/2} 
-                      y={-f.height/2} 
-                      width={f.width} 
-                      height={f.height} 
-                      fill={isSelected ? "#10b981" : "#1e293b"} 
-                      fillOpacity={isSelected ? "0.15" : "0.4"} 
-                      stroke={isSelected ? "#10b981" : "#475569"} 
-                      strokeWidth={isSelected ? "2" : "1"} 
-                      rx="8" 
-                    />
-                    <text y={4} textAnchor="middle" className={`text-[8px] font-black uppercase pointer-events-none tracking-widest ${isSelected ? 'fill-emerald-400' : 'fill-slate-500'}`}>
-                      {f.type}
-                    </text>
-                    {isSelected && (
-                      <g transform={`translate(0, ${f.height/2 + 15})`} rotate={-f.rotation}>
-                        <rect x="-35" y="-9" width="70" height="18" rx="6" fill="#10b981" />
-                        <text textAnchor="middle" dominantBaseline="middle" className="text-[8px] fill-white font-black uppercase tracking-tighter">
-                          {(f.width * 0.01).toFixed(1)}x{(f.height * 0.01).toFixed(1)}m
-                        </text>
-                      </g>
-                    )}
-                  </g>
-                );
-              })}
-
-              {/* Studio Draw Preview */}
-              {isDrawing && startPoint && currentMousePos && (
-                <g>
-                  <line x1={startPoint.x} y1={startPoint.y} x2={currentMousePos.x} y2={currentMousePos.y} stroke="#10b981" strokeWidth="2" strokeDasharray="6 4" />
-                  <circle cx={startPoint.x} cy={startPoint.y} r="4" fill="#10b981" />
-                  <circle cx={currentMousePos.x} cy={currentMousePos.y} r="4" fill="#10b981" />
-                  <g transform={`translate(${(startPoint.x + currentMousePos.x) / 2}, ${(startPoint.y + currentMousePos.y) / 2 - 20})`}>
-                    <rect x="-25" y="-10" width="50" height="20" rx="6" fill="#10b981" shadow="0 10px 15px rgba(16,185,129,0.3)" />
-                    <text textAnchor="middle" dominantBaseline="middle" className="text-[9px] fill-white font-black tracking-tighter">
-                      {(Math.hypot(currentMousePos.x - startPoint.x, currentMousePos.y - startPoint.y) * PIXELS_TO_METERS).toFixed(2)}m
+    <div className="flex-1 flex flex-col h-full bg-[#020617] relative">
+      <div className="flex-1 relative overflow-auto no-scrollbar p-12">
+        <div className="min-w-[2400px] min-h-[2400px] bg-[#0b1120] relative shadow-[0_0_100px_rgba(0,0,0,0.8)] rounded-[3rem] overflow-hidden" ref={containerRef}>
+          {/* Subtle Grid */}
+          <div className="absolute inset-0 opacity-[0.05] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#10b981 1px, transparent 1px), linear-gradient(90deg, #10b981 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+          
+          {backgroundImage && (
+            <img 
+              src={backgroundImage} 
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none transition-opacity duration-300"
+              style={{ opacity: bgOpacity }}
+              alt="Blueprint"
+            />
+          )}
+          <svg
+            ref={svgRef}
+            className="absolute inset-0 w-full h-full cursor-crosshair z-10"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+          >
+            {/* Walls with auto-dimension labels */}
+            {walls.map((wall) => {
+              const midX = (wall.start.x + wall.end.x) / 2;
+              const midY = (wall.start.y + wall.end.y) / 2;
+              const pixels = Math.hypot(wall.end.x - wall.start.x, wall.end.y - wall.start.y);
+              const length = (pixels * PIXELS_TO_METERS).toFixed(2);
+              return (
+                <g key={wall.id}>
+                  <line x1={wall.start.x} y1={wall.start.y} x2={wall.end.x} y2={wall.end.y} stroke="#334155" strokeWidth={wall.thickness} strokeLinecap="round" />
+                  <line x1={wall.start.x} y1={wall.start.y} x2={wall.end.x} y2={wall.end.y} stroke="#10b981" strokeWidth="1.5" strokeOpacity="0.5" />
+                  <g transform={`translate(${midX}, ${midY - 12})`}>
+                    <rect x="-20" y="-8" width="40" height="16" rx="4" fill="#0b1120" stroke="#10b981" strokeWidth="1" />
+                    <text textAnchor="middle" dominantBaseline="middle" className="text-[9px] fill-emerald-500 font-black">
+                      {length}m
                     </text>
                   </g>
                 </g>
-              )}
-            </svg>
-          </div>
+              );
+            })}
+
+            {/* Furniture Ghost (Preview while moving or placing) */}
+            {mode === ToolMode.FURNITURE && !draggingId && (
+               <g transform={`translate(${currentMousePos.x}, ${currentMousePos.y})`} className="pointer-events-none opacity-40">
+                  <rect x="-60" y="-40" width="120" height="80" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="5 3" rx="12" />
+                  <text y={5} textAnchor="middle" className="text-[8px] fill-emerald-500 font-black uppercase tracking-widest">กดเพื่อวาง {selectedFurnitureType}</text>
+               </g>
+            )}
+
+            {/* Visual Furniture blocks */}
+            {furniture.map(f => {
+              const isSelected = selectedId === f.id;
+              return (
+                <g key={f.id} transform={`translate(${f.position.x}, ${f.position.y}) rotate(${f.rotation})`}>
+                  <rect 
+                    x={-f.width/2} 
+                    y={-f.height/2} 
+                    width={f.width} 
+                    height={f.height} 
+                    fill={isSelected ? "#10b981" : "#1e293b"} 
+                    fillOpacity={isSelected ? "0.2" : "0.5"} 
+                    stroke={isSelected ? "#10b981" : "#475569"} 
+                    strokeWidth={isSelected ? "3" : "1.5"} 
+                    rx="12" 
+                    className="transition-all duration-300"
+                  />
+                  <text y={5} textAnchor="middle" className={`text-[9px] font-black uppercase pointer-events-none tracking-[0.15em] ${isSelected ? 'fill-emerald-400' : 'fill-slate-500'}`}>
+                    {f.type}
+                  </text>
+                  {isSelected && (
+                    <g transform={`translate(0, ${f.height/2 + 20})`} rotate={-f.rotation}>
+                       <text textAnchor="middle" className="text-[8px] fill-emerald-500/50 font-black uppercase">
+                        {(f.width * 0.01).toFixed(1)}m x {(f.height * 0.01).toFixed(1)}m
+                      </text>
+                    </g>
+                  )}
+                </g>
+              );
+            })}
+
+            {/* Drawing interaction feedback */}
+            {isDrawing && startPoint && currentMousePos && (
+              <g>
+                {mode === ToolMode.ROOM ? (
+                   <rect 
+                    x={Math.min(startPoint.x, currentMousePos.x)} 
+                    y={Math.min(startPoint.y, currentMousePos.y)}
+                    width={Math.abs(currentMousePos.x - startPoint.x)}
+                    height={Math.abs(currentMousePos.y - startPoint.y)}
+                    fill="rgba(16, 185, 129, 0.1)"
+                    stroke="#10b981"
+                    strokeWidth="2"
+                    strokeDasharray="8 4"
+                    rx="4"
+                   />
+                ) : (
+                  <>
+                    <line x1={startPoint.x} y1={startPoint.y} x2={currentMousePos.x} y2={currentMousePos.y} stroke="#10b981" strokeWidth="3" strokeDasharray="8 4" />
+                    <circle cx={startPoint.x} cy={startPoint.y} r="5" fill="#10b981" />
+                    <circle cx={currentMousePos.x} cy={currentMousePos.y} r="5" fill="#10b981" />
+                  </>
+                )}
+              </g>
+            )}
+          </svg>
         </div>
       </div>
     </div>
