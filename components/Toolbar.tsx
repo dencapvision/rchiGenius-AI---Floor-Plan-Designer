@@ -27,7 +27,8 @@ import {
   DoorOpen,
   Waves,
   Zap,
-  Move
+  Move,
+  Ruler
 } from 'lucide-react';
 import { ToolMode, FurnitureType } from '../types';
 
@@ -111,6 +112,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                  <VisualToolButton active={mode === ToolMode.WALL} onClick={() => setMode(ToolMode.WALL)} icon={<PenTool size={20} />} label="ลากวาดผนัง" />
                  <VisualToolButton active={selectedFurniture === FurnitureType.DOOR && mode === ToolMode.FURNITURE} onClick={() => {setMode(ToolMode.FURNITURE); setSelectedFurniture(FurnitureType.DOOR);}} icon={<DoorOpen size={20} />} label="ประตู" />
                  <VisualToolButton active={selectedFurniture === FurnitureType.WINDOW && mode === ToolMode.FURNITURE} onClick={() => {setMode(ToolMode.FURNITURE); setSelectedFurniture(FurnitureType.WINDOW);}} icon={<Layout size={20} />} label="หน้าต่าง" />
+                 <VisualToolButton active={mode === ToolMode.MEASURE} onClick={() => setMode(ToolMode.MEASURE)} icon={<Ruler size={20} />} label="วัดระยะ" />
               </div>
 
               <div className="pt-6 border-t border-white/5">

@@ -62,6 +62,7 @@ const App: React.FC = () => {
     if (mode === ToolMode.ROOM) return "คลิกค้างแล้วลากเพื่อสร้างห้องสี่เหลี่ยมสำเร็จรูป";
     if (mode === ToolMode.FURNITURE) return `คลิกตรงไหนก็ได้บนแปลนเพื่อวาง ${selectedFurniture}`;
     if (mode === ToolMode.ERASE) return "คลิกที่สิ่งของที่ต้องการนำออก";
+    if (mode === ToolMode.MEASURE) return "คลิก 2 จุดบนแปลนเพื่อวัดระยะห่าง";
     return "พร้อมเริ่มออกแบบแล้ว!";
   };
 

@@ -35,8 +35,17 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const [dragOffset, setDragOffset] = useState<Point>({ x: 0, y: 0 });
   const [startPoint, setStartPoint] = useState<Point | null>(null);
   const [currentMousePos, setCurrentMousePos] = useState<Point>({ x: 0, y: 0 });
+  
+  // Measure state
+  const [measurePoints, setMeasurePoints] = useState<{ start: Point | null, end: Point | null }>({ start: null, end: null });
+
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Clear measure points when switching tools
+  useEffect(() => {
+    setMeasurePoints({ start: null, end: null });
+  }, [mode]);
 
   const getMousePos = (e: React.MouseEvent | React.TouchEvent): Point => {
     if (!svgRef.current) return { x: 0, y: 0 };
@@ -51,6 +60,18 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const pos = getMousePos(e);
+    
+    if (mode === ToolMode.MEASURE) {
+      if (!measurePoints.start || (measurePoints.start && measurePoints.end)) {
+        // Start a fresh measurement
+        setMeasurePoints({ start: pos, end: null });
+      } else {
+        // Finalize measurement
+        setMeasurePoints(prev => ({ ...prev, end: pos }));
+      }
+      return;
+    }
+
     if (mode === ToolMode.SELECT) {
       const found = furniture.find(f => {
         const dx = Math.abs(f.position.x - pos.x);
@@ -91,6 +112,11 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const handleMouseMove = (e: React.MouseEvent) => {
     const pos = getMousePos(e);
     setCurrentMousePos(pos);
+    
+    if (mode === ToolMode.MEASURE && measurePoints.start && !measurePoints.end) {
+      // Dynamic update for measure preview is handled by currentMousePos
+    }
+
     if (draggingId) {
       setFurniture(prev => prev.map(f => f.id === draggingId ? { ...f, position: { x: pos.x - dragOffset.x, y: pos.y - dragOffset.y } } : f));
     } else if (isDrawing) {
@@ -99,6 +125,8 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   };
 
   const handleMouseUp = () => {
+    if (mode === ToolMode.MEASURE) return;
+
     if (isDrawing && startPoint && currentMousePos) {
       if (mode === ToolMode.ROOM) {
         const w1: Wall = { id: Math.random().toString(), start: startPoint, end: { x: currentMousePos.x, y: startPoint.y }, thickness: 8 };
@@ -164,6 +192,41 @@ const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                   <rect x="-60" y="-40" width="120" height="80" fill="none" stroke="#10b981" strokeWidth="2" strokeDasharray="5 3" rx="12" />
                   <text y={5} textAnchor="middle" className="text-[8px] fill-emerald-500 font-black uppercase tracking-widest">กดเพื่อวาง {selectedFurnitureType}</text>
                </g>
+            )}
+
+            {/* Measure Tool Rendering */}
+            {measurePoints.start && (
+              <g pointerEvents="none">
+                <circle cx={measurePoints.start.x} cy={measurePoints.start.y} r="6" fill="#06b6d4" />
+                { (measurePoints.end || (mode === ToolMode.MEASURE && !measurePoints.end)) && (
+                  <>
+                    <line 
+                      x1={measurePoints.start.x} 
+                      y1={measurePoints.start.y} 
+                      x2={measurePoints.end ? measurePoints.end.x : currentMousePos.x} 
+                      y2={measurePoints.end ? measurePoints.end.y : currentMousePos.y} 
+                      stroke="#06b6d4" 
+                      strokeWidth="3" 
+                      strokeDasharray="6 4" 
+                    />
+                    <circle 
+                      cx={measurePoints.end ? measurePoints.end.x : currentMousePos.x} 
+                      cy={measurePoints.end ? measurePoints.end.y : currentMousePos.y} 
+                      r="6" 
+                      fill="#06b6d4" 
+                    />
+                    <g transform={`translate(${(measurePoints.start.x + (measurePoints.end ? measurePoints.end.x : currentMousePos.x)) / 2}, ${(measurePoints.start.y + (measurePoints.end ? measurePoints.end.y : currentMousePos.y)) / 2 - 20})`}>
+                      <rect x="-30" y="-12" width="60" height="24" rx="8" fill="#0b1120" stroke="#06b6d4" strokeWidth="2" />
+                      <text textAnchor="middle" dominantBaseline="middle" className="text-[11px] fill-cyan-400 font-black">
+                        {(Math.hypot(
+                          (measurePoints.end ? measurePoints.end.x : currentMousePos.x) - measurePoints.start.x, 
+                          (measurePoints.end ? measurePoints.end.y : currentMousePos.y) - measurePoints.start.y
+                        ) * PIXELS_TO_METERS).toFixed(2)}m
+                      </text>
+                    </g>
+                  </>
+                )}
+              </g>
             )}
 
             {/* Visual Furniture blocks */}

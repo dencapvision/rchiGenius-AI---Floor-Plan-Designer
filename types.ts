@@ -38,7 +38,8 @@ export enum ToolMode {
   WALL = 'WALL',
   ROOM = 'ROOM',
   FURNITURE = 'FURNITURE',
-  ERASE = 'ERASE'
+  ERASE = 'ERASE',
+  MEASURE = 'MEASURE'
 }
 
 export interface ProjectReport {
